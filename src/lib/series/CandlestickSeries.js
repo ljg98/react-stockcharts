@@ -25,7 +25,7 @@ class CandlestickSeries extends Component {
 		const { className, wickClassName, candleClassName } = this.props;
 		const { xScale, chartConfig: { yScale }, plotData, xAccessor } = moreProps;
 
-		const candleData = getCandleData(this.props, xAccessor, xScale, yScale, plotData);
+		const candleData = getCandleData(this.props, moreProps, xAccessor, xScale, yScale, plotData);
 
 		return <g className={className}>
 			<g className={wickClassName} key="wicks">
@@ -44,7 +44,7 @@ class CandlestickSeries extends Component {
 			svgDraw={this.renderSVG}
 			canvasDraw={this.drawOnCanvas}
 			canvasToDraw={getAxisCanvas}
-			drawOn={["pan"]}
+			drawOn={["pan", "mousemove"]}
 		/>;
 	}
 }
@@ -63,6 +63,10 @@ CandlestickSeries.propTypes = {
 		PropTypes.string
 	]),
 	fill: PropTypes.oneOfType([
+		PropTypes.func,
+		PropTypes.string
+	]),
+	hoverFill: PropTypes.oneOfType([
 		PropTypes.func,
 		PropTypes.string
 	]),
@@ -145,7 +149,7 @@ function drawOnCanvas(ctx, props, moreProps) {
 	const { xScale, chartConfig: { yScale }, plotData, xAccessor } = moreProps;
 
 	// const wickData = getWickData(props, xAccessor, xScale, yScale, plotData);
-	const candleData = getCandleData(props, xAccessor, xScale, yScale, plotData);
+	const candleData = getCandleData(props, moreProps, xAccessor, xScale, yScale, plotData);
 
 	const wickNest = nest()
 		.key(d => d.wick.stroke)
@@ -219,6 +223,7 @@ function drawOnCanvas(ctx, props, moreProps) {
 					ctx.fill();
 					if (strokeKey !== "none") ctx.stroke();
 					*/
+					ctx.clearRect(d.x, d.y, d.width, d.height);
 					ctx.fillRect(d.x, d.y, d.width, d.height);
 					if (strokeKey !== "none") ctx.strokeRect(d.x, d.y, d.width, d.height);
 				}
@@ -259,15 +264,22 @@ function getWickData(props, xAccessor, xScale, yScale, plotData) {
 }
 */
 
-function getCandleData(props, xAccessor, xScale, yScale, plotData) {
+function getCandleData(props, moreProps, xAccessor, xScale, yScale, plotData) {
 
 	const { wickStroke: wickStrokeProp } = props;
 	const wickStroke = functor(wickStrokeProp);
 
-	const { classNames, fill: fillProp, stroke: strokeProp, yAccessor } = props;
+	const { classNames, fill: fillProp, hoverFill: hoverProp, stroke: strokeProp, yAccessor } = props;
 	const className = functor(classNames);
 
-	const fill = functor(fillProp);
+	const fill = (candleItem) => {
+		const { currentItem } = moreProps;
+		if (isDefined(currentItem) && currentItem.date === candleItem.date) {
+			return functor(hoverProp)(candleItem);
+		} else {
+			return functor(fillProp)(candleItem);
+		}
+	}
 	const stroke = functor(strokeProp);
 
 	const widthFunctor = functor(props.width);
@@ -314,7 +326,7 @@ function getCandleData(props, xAccessor, xScale, yScale, plotData) {
 				height: height,
 				width: offset * 2,
 				className: className(ohlc),
-				fill: fill(ohlc),
+				fill: fill(d),
 				stroke: stroke(ohlc),
 				direction: (ohlc.close - ohlc.open),
 			});

@@ -1,5 +1,4 @@
 import React, { Component } from "react";
-import ReactDOM from "react-dom";
 
 import { isDefined } from "../utils";
 
@@ -59,9 +58,9 @@ export default function fitWidth(WrappedComponent, withRef = true, minWidth = 10
 			}, () => {
 				const el = this.node;
 				const { width, paddingLeft, paddingRight } = window.getComputedStyle(el.parentNode);
-				
+
 				const w = parseFloat(width) - (parseFloat(paddingLeft) + parseFloat(paddingRight));
-	
+
 				this.setState({
 					width: Math.max(w, minWidth)
 				});
