@@ -99,12 +99,17 @@ CandlestickSeries.defaultProps = {
 	wickStroke: "#000000",
 	// wickStroke: d => d.close > d.open ? "#6BA583" : "#FF0000",
 	fill: d => d.close > d.open ? "#6BA583" : "#FF0000",
+	hoverFill: d => d.close > d.open ? "#6BA583" : "#FF0000",
 	// stroke: d => d.close > d.open ? "#6BA583" : "#FF0000",
 	stroke: "#000000",
+	hoverStroke: "#000000",
 	candleStrokeWidth: 0.5,
+	opacity: 0.5,
+	strokeOpacity: 0.5,
+	hoverFillOpacity: 0.5,
+	hoverStrokeOpacity: 0.5,
 	// stroke: "none",
 	widthRatio: 0.8,
-	opacity: 0.5,
 	clip: true,
 };
 
@@ -134,13 +139,13 @@ function getCandlesSVG(props, candleData) {
 			return (
 				<line className={d.className} key={idx}
 					x1={d.x} y1={d.y} x2={d.x} y2={d.y + d.height}
-					stroke={d.fill} />
+					stroke={d.fill} strokeOpacity={d.strokeOpacity} />
 			);
 		else if (d.height === 0)
 			return (
 				<line key={idx}
 					x1={d.x} y1={d.y} x2={d.x + d.width} y2={d.y + d.height}
-					stroke={d.fill} />
+					stroke={d.fill} strokeOpacity={d.strokeOpacity} />
 			);
 		return (
 			<rect key={idx} className={d.className}
@@ -184,6 +189,18 @@ function drawOnCanvas(ctx, props, moreProps) {
 				ctx.stroke(); */
 				const d = each.wick;
 
+				ctx.clearRect(
+					d.x - 0.5 - ctx.lineWidth,
+					d.y1 - ctx.lineWidth,
+					1 + (2 * ctx.lineWidth),
+					d.y2 - d.y1 + (2 * ctx.lineWidth)
+				)
+				ctx.clearRect(
+					d.x - 0.5 - ctx.lineWidth,
+					d.y3 - ctx.lineWidth,
+					1 + (2 * ctx.lineWidth),
+					d.y4 - d.y3 + (2 * ctx.lineWidth)
+				);
 				ctx.fillRect(d.x - 0.5, d.y1, 1, d.y2 - d.y1);
 				ctx.fillRect(d.x - 0.5, d.y3, 1, d.y4 - d.y3);
 			});
@@ -206,8 +223,7 @@ function drawOnCanvas(ctx, props, moreProps) {
 		}
 		strokeSet.forEach(strokeSetItem => {
 			const { key: strokeOpacity, values: strokeOpacitySet } = strokeSetItem;
-			const strokeStyle = hexToRGBA(stroke, strokeOpacity)
-			ctx.strokeStyle = strokeStyle;
+			ctx.strokeStyle = hexToRGBA(stroke, strokeOpacity);
 
 			strokeOpacitySet.forEach(strokeOpacitySetItem => {
 				const { key: fill, values: fillSet } = strokeOpacitySetItem;
@@ -248,9 +264,14 @@ function drawOnCanvas(ctx, props, moreProps) {
 							ctx.fill();
 							if (strokeKey !== "none") ctx.stroke();
 							*/
-							ctx.clearRect(d.x, d.y, d.width, d.height);
+							ctx.clearRect(
+								d.x - ctx.lineWidth,
+								d.y - ctx.lineWidth,
+								d.width + (2 * ctx.lineWidth),
+								d.height + (2 * ctx.lineWidth)
+							);
 							ctx.fillRect(d.x, d.y, d.width, d.height);
-							if (strokeKey !== "none") ctx.strokeRect(d.x, d.y, d.width, d.height);
+							if (stroke !== "none") ctx.strokeRect(d.x, d.y, d.width, d.height);
 						}
 					});
 				});
