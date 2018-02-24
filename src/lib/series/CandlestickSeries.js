@@ -32,7 +32,7 @@ class CandlestickSeries extends Component {
 				{getWicksSVG(candleData)}
 			</g>
 			<g className={candleClassName} key="candles">
-				{getCandlesSVG(this.props, candleData)}
+				{getCandlesSVG(this.props, moreProps, candleData)}
 			</g>
 		</g>;
 	}
@@ -70,6 +70,7 @@ CandlestickSeries.propTypes = {
 		PropTypes.func,
 		PropTypes.string
 	]),
+	hoverFillOpacity: PropTypes.string,
 	stroke: PropTypes.oneOfType([
 		PropTypes.func,
 		PropTypes.string
@@ -78,6 +79,12 @@ CandlestickSeries.propTypes = {
 		PropTypes.func,
 		PropTypes.string
 	]),
+	hoverStroke: PropTypes.oneOfType([
+		PropTypes.func,
+		PropTypes.string
+	]),
+	strokeOpacity: PropTypes.string,
+	hoverStrokeOpacity: PropTypes.string,
 	yAccessor: PropTypes.func,
 	clip: PropTypes.bool,
 };
@@ -109,6 +116,7 @@ function getWicksSVG(candleData) {
 			return <path key={idx}
 				className={each.className}
 				stroke={d.stroke}
+				strokeOpacity={d.strokeOpacity}
 				d={`M${d.x},${d.y1} L${d.x},${d.y2} M${d.x},${d.y3} L${d.x},${d.y4}`} />;
 		});
 
@@ -118,7 +126,7 @@ function getWicksSVG(candleData) {
 function getCandlesSVG(props, candleData) {
 
 	/* eslint-disable react/prop-types */
-	const { opacity, candleStrokeWidth } = props;
+	const { candleStrokeWidth } = props;
 	/* eslint-enable react/prop-types */
 
 	const candles = candleData.map((d, idx) => {
@@ -136,9 +144,10 @@ function getCandlesSVG(props, candleData) {
 			);
 		return (
 			<rect key={idx} className={d.className}
-				fillOpacity={opacity}
+				fillOpacity={d.opacity}
 				x={d.x} y={d.y} width={d.width} height={d.height}
-				fill={d.fill} stroke={d.stroke} strokeWidth={candleStrokeWidth} />
+				fill={d.fill} stroke={d.stroke} strokeOpacity={d.strokeOpacity}
+				strokeWidth={candleStrokeWidth} />
 		);
 	});
 	return candles;
@@ -153,25 +162,31 @@ function drawOnCanvas(ctx, props, moreProps) {
 
 	const wickNest = nest()
 		.key(d => d.wick.stroke)
+		.key(d => d.strokeOpacity)
 		.entries(candleData);
 
 	wickNest.forEach(outer => {
-		const { key, values } = outer;
-		ctx.strokeStyle = key;
-		ctx.fillStyle = key;
-		values.forEach(each => {
-			/*
-			ctx.moveTo(d.x, d.y1);
-			ctx.lineTo(d.x, d.y2);
+		const { key: stroke, values: strokeSet } = outer;
 
-			ctx.beginPath();
-			ctx.moveTo(d.x, d.y3);
-			ctx.lineTo(d.x, d.y4);
-			ctx.stroke(); */
-			const d = each.wick;
+		strokeSet.forEach(inner => {
+			const { key: strokeOpacity, values } = inner;
+			ctx.strokeStyle = hexToRGBA(stroke, strokeOpacity);
+			ctx.fillStyle = hexToRGBA(stroke, strokeOpacity);
 
-			ctx.fillRect(d.x - 0.5, d.y1, 1, d.y2 - d.y1);
-			ctx.fillRect(d.x - 0.5, d.y3, 1, d.y4 - d.y3);
+			values.forEach(each => {
+				/*
+				ctx.moveTo(d.x, d.y1);
+				ctx.lineTo(d.x, d.y2);
+
+				ctx.beginPath();
+				ctx.moveTo(d.x, d.y3);
+				ctx.lineTo(d.x, d.y4);
+				ctx.stroke(); */
+				const d = each.wick;
+
+				ctx.fillRect(d.x - 0.5, d.y1, 1, d.y2 - d.y1);
+				ctx.fillRect(d.x - 0.5, d.y3, 1, d.y4 - d.y3);
+			});
 		});
 	});
 
@@ -179,54 +194,66 @@ function drawOnCanvas(ctx, props, moreProps) {
 
 	const candleNest = nest()
 		.key(d => d.stroke)
+		.key(d => d.strokeOpacity)
 		.key(d => d.fill)
+		.key(d => d.opacity)
 		.entries(candleData);
 
-
 	candleNest.forEach(outer => {
-		const { key: strokeKey, values: strokeValues } = outer;
-		if (strokeKey !== "none") {
-			ctx.strokeStyle = strokeKey;
+		const { key: stroke, values: strokeSet } = outer;
+		if (stroke !== "none") {
 			ctx.lineWidth = candleStrokeWidth;
 		}
-		strokeValues.forEach(inner => {
-			const { key, values } = inner;
-			const fillStyle = head(values).width <= 1
-				? key
-				: hexToRGBA(key, opacity);
-			ctx.fillStyle = fillStyle;
+		strokeSet.forEach(strokeSetItem => {
+			const { key: strokeOpacity, values: strokeOpacitySet } = strokeSetItem;
+			const strokeStyle = hexToRGBA(stroke, strokeOpacity)
+			ctx.strokeStyle = strokeStyle;
 
-			values.forEach(d => {
-				if (d.width <= 1) {
-					// <line className={d.className} key={idx} x1={d.x} y1={d.y} x2={d.x} y2={d.y + d.height}/>
-					/*
-					ctx.beginPath();
-					ctx.moveTo(d.x, d.y);
-					ctx.lineTo(d.x, d.y + d.height);
-					ctx.stroke();
-					*/
-					ctx.fillRect(d.x - 0.5, d.y, 1, d.height);
-				} else if (d.height === 0) {
-					// <line key={idx} x1={d.x} y1={d.y} x2={d.x + d.width} y2={d.y + d.height} />
-					/*
-					ctx.beginPath();
-					ctx.moveTo(d.x, d.y);
-					ctx.lineTo(d.x + d.width, d.y + d.height);
-					ctx.stroke();
-					*/
-					ctx.fillRect(d.x, d.y - 0.5, d.width, 1);
-				} else {
-					/*
-					ctx.beginPath();
-					ctx.rect(d.x, d.y, d.width, d.height);
-					ctx.closePath();
-					ctx.fill();
-					if (strokeKey !== "none") ctx.stroke();
-					*/
-					ctx.clearRect(d.x, d.y, d.width, d.height);
-					ctx.fillRect(d.x, d.y, d.width, d.height);
-					if (strokeKey !== "none") ctx.strokeRect(d.x, d.y, d.width, d.height);
-				}
+			strokeOpacitySet.forEach(strokeOpacitySetItem => {
+				const { key: fill, values: fillSet } = strokeOpacitySetItem;
+
+				fillSet.forEach(fillSetItem => {
+					const { key: fillOpacity, values } = fillSetItem;
+					const fillStyle = head(values).width <= 1
+						? fill
+						: hexToRGBA(fill, fillOpacity);
+					ctx.fillStyle = fillStyle;
+
+					values.forEach(d => {
+						if (d.width <= 1) {
+							// <line className={d.className} key={idx} x1={d.x} y1={d.y} x2={d.x} y2={d.y + d.height}/>
+							/*
+							ctx.beginPath();
+							ctx.moveTo(d.x, d.y);
+							ctx.lineTo(d.x, d.y + d.height);
+							ctx.stroke();
+							*/
+							ctx.clearRect(d.x - 0.5, d.y, 1, d.height);
+							ctx.fillRect(d.x - 0.5, d.y, 1, d.height);
+						} else if (d.height === 0) {
+							// <line key={idx} x1={d.x} y1={d.y} x2={d.x + d.width} y2={d.y + d.height} />
+							/*
+							ctx.beginPath();
+							ctx.moveTo(d.x, d.y);
+							ctx.lineTo(d.x + d.width, d.y + d.height);
+							ctx.stroke();
+							*/
+							ctx.clearRect(d.x, d.y - 0.5, d.width, 1);
+							ctx.fillRect(d.x, d.y - 0.5, d.width, 1);
+						} else {
+							/*
+							ctx.beginPath();
+							ctx.rect(d.x, d.y, d.width, d.height);
+							ctx.closePath();
+							ctx.fill();
+							if (strokeKey !== "none") ctx.stroke();
+							*/
+							ctx.clearRect(d.x, d.y, d.width, d.height);
+							ctx.fillRect(d.x, d.y, d.width, d.height);
+							if (strokeKey !== "none") ctx.strokeRect(d.x, d.y, d.width, d.height);
+						}
+					});
+				});
 			});
 		});
 	});
@@ -266,21 +293,45 @@ function getWickData(props, xAccessor, xScale, yScale, plotData) {
 
 function getCandleData(props, moreProps, xAccessor, xScale, yScale, plotData) {
 
-	const { wickStroke: wickStrokeProp } = props;
-	const wickStroke = functor(wickStrokeProp);
+	const { wickStroke: wickStrokeProp, hoverStroke} = props;
+	const { opacity: fillOpacityProp, hoverFillOpacity, strokeOpacity: strokeOpacityProp, hoverStrokeOpacity } = props;
+	const { currentItem } = moreProps;
+
+	const wickStroke = (candleItem) => {
+		if (isDefined(currentItem) && currentItem.date === candleItem.date) {
+			return functor(hoverStroke)(candleItem);
+		}
+		return functor(wickStrokeProp)(candleItem);
+	};
 
 	const { classNames, fill: fillProp, hoverFill: hoverProp, stroke: strokeProp, yAccessor } = props;
 	const className = functor(classNames);
 
 	const fill = (candleItem) => {
-		const { currentItem } = moreProps;
 		if (isDefined(currentItem) && currentItem.date === candleItem.date) {
 			return functor(hoverProp)(candleItem);
 		} else {
 			return functor(fillProp)(candleItem);
 		}
 	}
-	const stroke = functor(strokeProp);
+	const fillOpacity = (candleItem) => {
+		if (isDefined(currentItem) && currentItem.date === candleItem.date) {
+			return hoverFillOpacity;
+		}
+		return fillOpacityProp;
+	}
+	const strokeOpacity = (candleItem) => {
+		if (isDefined(currentItem) && currentItem.date === candleItem.date) {
+			return hoverStrokeOpacity;
+		}
+		return strokeOpacityProp;
+	}
+	const stroke = (candleItem) => {
+		if (isDefined(currentItem) && currentItem.date === candleItem.date) {
+			return functor(hoverStroke)(candleItem);
+		}
+		return functor(strokeProp)(candleItem);
+	};
 
 	const widthFunctor = functor(props.width);
 	const width = widthFunctor(props, {
@@ -315,8 +366,9 @@ function getCandleData(props, moreProps, xAccessor, xScale, yScale, plotData) {
 				// type: "line"
 				x: x - offset,
 				y: y,
+				dataAccessor: d,
 				wick: {
-					stroke: wickStroke(ohlc),
+					stroke: wickStroke(d),
 					x: x,
 					y1: Math.round(yScale(ohlc.high)),
 					y2: y,
@@ -327,7 +379,9 @@ function getCandleData(props, moreProps, xAccessor, xScale, yScale, plotData) {
 				width: offset * 2,
 				className: className(ohlc),
 				fill: fill(d),
-				stroke: stroke(ohlc),
+				stroke: stroke(d),
+				opacity: fillOpacity(d),
+				strokeOpacity: strokeOpacity(d),
 				direction: (ohlc.close - ohlc.open),
 			});
 		}
