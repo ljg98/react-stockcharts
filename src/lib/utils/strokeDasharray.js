@@ -16,7 +16,7 @@ export const getStrokeDasharray = (type) => {
 	switch (type) {
 	default:
 	case "Solid":
-		return "none";
+		return "";
 	case "ShortDash":
 		return "6, 2";
 	case "ShortDot":
