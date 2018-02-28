@@ -4,7 +4,9 @@ import React, { Component } from "react";
 import PropTypes from "prop-types";
 import GenericComponent, { getMouseCanvas } from "../GenericComponent";
 
-import { hexToRGBA, isDefined, isNotDefined, strokeDashTypes, getStrokeDasharray } from "../utils";
+import {
+	hexToRGBA, isDefined, isNotDefined, strokeDashTypes, getStrokeDasharray, plotDataLengthBarWidth
+} from "../utils";
 
 class CrossHairCursor extends Component {
 	constructor(props) {
@@ -30,6 +32,7 @@ class CrossHairCursor extends Component {
 			lines.forEach(line => {
 				const dashArray = getStrokeDasharray(line.strokeDasharray).split(",").map(d => +d);
 
+				ctx.lineWidth = line.width || ctx.lineWidth;
 				ctx.strokeStyle = hexToRGBA(line.stroke, line.opacity);
 				ctx.setLineDash(dashArray);
 				ctx.beginPath();
@@ -71,6 +74,7 @@ class CrossHairCursor extends Component {
 CrossHairCursor.propTypes = {
 	className: PropTypes.string,
 	strokeDasharray: PropTypes.oneOf(strokeDashTypes),
+	strokeHighlight: PropTypes.boolean
 };
 
 CrossHairCursor.contextTypes = {
@@ -94,6 +98,7 @@ CrossHairCursor.defaultProps = {
 	stroke: "#000000",
 	opacity: 0.3,
 	strokeDasharray: "ShortDash",
+	strokeHighlight: false,
 	snapX: true,
 	customX,
 };
@@ -103,7 +108,7 @@ function helper(props, moreProps) {
 		mouseXY, currentItem, show, height, width
 	} = moreProps;
 
-	const { customX, stroke, opacity, strokeDasharray } = props;
+	const { customX, stroke, opacity, strokeDasharray, strokeHighlight } = props;
 
 	if (!show || isNotDefined(currentItem)) return null;
 
@@ -121,7 +126,9 @@ function helper(props, moreProps) {
 		x2: x,
 		y1: 0,
 		y2: height,
-		stroke, strokeDasharray, opacity,
+		width: strokeHighlight ? plotDataLengthBarWidth({}, moreProps) : null,
+		strokeDasharray: strokeHighlight ? "Solid" : strokeDasharray,
+		stroke, opacity,
 	};
 	return [line1, line2];
 }
